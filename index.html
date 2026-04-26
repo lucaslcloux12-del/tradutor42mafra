@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Interface G-42</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: #121212; 
+            color: #ececec; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            height: 100vh;
+            margin: 0; 
+            overflow: hidden;
+            position: relative;
+        }
+        #matrix-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: none;
+            z-index: 1;
+        }
+        .box { 
+            background: #1e1e1e; 
+            border: 1px solid #333; 
+            padding: 35px; 
+            border-radius: 24px;
+            width: 100%; 
+            max-width: 480px; 
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+        h2 { text-align: center; color: #ffffff; font-weight: 600; letter-spacing: 2px; margin-bottom: 25px; font-size: 1.5rem; }
+        .mode { text-align: center; font-size: 12px; letter-spacing: 1.5px; margin-bottom: 15px; color: #888; text-transform: uppercase; font-weight: bold; }
+        textarea { 
+            width: 100%; height: 120px; background: #252525; color: #ffffff; border: 1px solid #3d3d3d; 
+            margin: 10px 0; padding: 20px; box-sizing: border-box; font-size: 16px; outline: none; border-radius: 18px; resize: none; 
+        }
+        button { 
+            width: 100%; padding: 16px; cursor: pointer; background: #e0e0e0; color: #121212; border: none; 
+            font-weight: 700; border-radius: 50px; text-transform: uppercase; margin: 15px 0;
+        }
+
+        .hacker-target {
+            color: #00ff42 !important;
+            text-shadow: 0 0 10px #00ff42;
+            cursor: pointer;
+            animation: glitch 0.2s infinite;
+            border-color: #00ff42 !important;
+            background: rgba(0, 0, 0, 0.9) !important;
+        }
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            25% { transform: translate(-2px, 1px); }
+            50% { transform: translate(2px, -1px); }
+            100% { transform: translate(0); }
+        }
+
+        #corrupt-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            display: none;
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 120px;
+            font-weight: bold;
+        }
+        .num-4 { color: #555; animation: cycle4 1s infinite ease-in-out; }
+        .num-2 { color: #888; animation: cycle2 1s infinite ease-in-out; }
+        @keyframes cycle4 { 0%, 100% { transform: translateY(-60px); } 50% { transform: translateY(60px); } }
+        @keyframes cycle2 { 0%, 100% { transform: translateY(60px); } 50% { transform: translateY(-60px); } }
+
+        .footer-info { font-size: 11px; color: #555; margin-top: 20px; text-align: center; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+
+<div id="corrupt-screen">
+    <span class="num-4">4</span>
+    <span class="num-2">2</span>
+</div>
+
+<div class="box" id="mainBox">
+    <div class="mode" id="modeDisplay">Português ➜ G-42</div>
+    <h2>Sistema G-42</h2>
+    
+    <textarea id="input" placeholder="Digite aqui..."></textarea>
+    <button onclick="toggleDirection()">Inverter Sentido</button>
+    <textarea id="output" readonly placeholder="Resultado..."></textarea>
+    
+    <div class="footer-info">
+        BASE: 42 | LETRA: [ . ] | ESPAÇO: [ / ]
+    </div>
+</div>
+
+<script>
+    const dict = {
+        'A': '4^2.', 'B': '4&2.', 'C': '2(4.', 'D': '4)2.', 'E': '4=2.',
+        'F': '4#2.', 'G': '42.', 'H': '4-4.', 'I': '4!2.', 'J': '2_4.',
+        'K': '4<2.', 'L': '4_2.', 'M': '4^4.', 'N': '4\\2.', 'O': '4°2.',
+        'P': '4*2.', 'Q': '2°4.', 'R': '4~2.', 'S': '2§4.', 'T': '4+2.',
+        'U': '2_2.', 'V': '4\\/2.', 'W': '4#4.', 'X': '4%2.', 'Y': '2?4.', 'Z': '2#2.'
+    };
+
+    const revDict = Object.fromEntries(Object.entries(dict).map(([k, v]) => [v, k]));
+    let to42 = true;
+
+    const inputArea = document.getElementById('input');
+    const outputArea = document.getElementById('output');
+    const canvas = document.getElementById('matrix-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // MATRIX RAIN LOGIC
+    let characters = "42";
+    characters = characters.split("");
+    let fontSize = 16;
+    let columns = 0;
+    let drops = [];
+
+    function initMatrix() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        columns = canvas.width / fontSize;
+        drops = [];
+        for (let x = 0; x < columns; x++) drops[x] = 1;
+    }
+
+    function drawMatrix() {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#0F0";
+        ctx.font = fontSize + "px arial";
+        for (let i = 0; i < drops.length; i++) {
+            let text = characters[Math.floor(Math.random() * characters.length)];
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        }
+    }
+
+    let matrixInterval;
+
+    inputArea.addEventListener('input', function() {
+        const val = this.value.toUpperCase().trim();
+        
+        if (to42) {
+            // Português para G-42
+            if (val === "GIULIANA MAFRA") {
+                outputArea.value = "SYSTEM_OVERLOAD: DATA_BREACH [CLICK TO DISCONNECT]";
+                outputArea.classList.add('hacker-target');
+                outputArea.onclick = triggerShutdown;
+                canvas.style.display = "block";
+                initMatrix();
+                if(!matrixInterval) matrixInterval = setInterval(drawMatrix, 33);
+                return;
+            } else {
+                resetHackerEffects();
+            }
+
+            let words = this.value.split(' ');
+            let translated = words.map(word => {
+                let clean = word.toUpperCase().replace(/[^A-Z]/g, '');
+                if (clean === "GIULIANA") return "Forty";
+                if (clean === "MAFRA") return "Two";
+                return word.toUpperCase().split('').map(c => dict[c] || c).join('');
+            }).join('/');
+
+            outputArea.value = translated;
+        } else {
+            // G-42 para Português (INVERTIDO)
+            let result = "";
+            let words = this.value.split('/'); // Usa a barra como separador de palavras
+            
+            words.forEach((word, index) => {
+                let decodedWord = "";
+                // Encontra padrões que terminam com ponto (cada letra do G-42)
+                let letters = word.match(/[^.]+\./g) || [];
+                letters.forEach(l => {
+                    decodedWord += revDict[l] || '?';
+                });
+                result += decodedWord + (index < words.length - 1 ? ' ' : '');
+            });
+            outputArea.value = result;
+        }
+    });
+
+    function resetHackerEffects() {
+        outputArea.classList.remove('hacker-target');
+        outputArea.onclick = null;
+        canvas.style.display = "none";
+        clearInterval(matrixInterval);
+        matrixInterval = null;
+    }
+
+    function triggerShutdown() {
+        document.getElementById('mainBox').style.opacity = '0';
+        setTimeout(() => {
+            document.getElementById('mainBox').style.display = 'none';
+            document.getElementById('corrupt-screen').style.display = 'flex';
+            setTimeout(() => {
+                document.getElementById('corrupt-screen').style.background = "#fff";
+                document.getElementById('corrupt-screen').innerHTML = "";
+                setTimeout(() => { window.close(); document.body.innerHTML = ""; }, 300);
+            }, 3000);
+        }, 300);
+    }
+
+    function toggleDirection() {
+        to42 = !to42;
+        document.getElementById('modeDisplay').innerText = to42 ? "Português ➜ G-42" : "G-42 ➜ Português";
+        inputArea.value = "";
+        outputArea.value = "";
+        inputArea.placeholder = to42 ? "Digite em Português..." : "Insira o Código G-42...";
+        resetHackerEffects();
+    }
+
+    window.addEventListener('resize', initMatrix);
+</script>
+</body>
+</html>
